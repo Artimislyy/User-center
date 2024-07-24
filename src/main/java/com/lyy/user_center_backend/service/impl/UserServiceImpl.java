@@ -3,6 +3,8 @@ package com.lyy.user_center_backend.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 
+import com.lyy.user_center_backend.common.ErrorCode;
+import com.lyy.user_center_backend.exception.CustomException;
 import com.lyy.user_center_backend.mapper.UserMapper;
 import com.lyy.user_center_backend.model.domain.User;
 import com.lyy.user_center_backend.service.UserService;
@@ -33,24 +35,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         // 1.校验
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword)) {
-            return -1L;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         if (userAccount.length() < 2) {
-            return -1L;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"用户账号过短");
         }
         if (userPassword.length() < 6 || checkPassword.length() < 6){
-            return -1L;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"密码长度过短");
         }
 
         // 账户不能包含特殊字符
         String userAccountRegex = "^[a-zA-Z0-9_]+$";
         boolean isVaild = Pattern.compile(userAccountRegex).matcher(userAccount).matches();
         if (!isVaild) {
-            return -1L;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"用户账号包含特殊字符");
         }
         // 密码和校验密码相同
         if (!userPassword.equals(checkPassword)) {
-            return -1L;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"两次密码不一致");
         }
 
         // 2.加密
@@ -63,7 +65,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq("userAccount", userAccount).eq("userPassword", encryptPassword);
         long count = this.count(queryWrapper);
         if(count> 0) {
-            return -1L;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"用户账号重复");
         }
 
         // 4.插入数据库
@@ -74,7 +76,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         boolean saveResult = this.save(user);
         if (!saveResult) {
-            return -1L;
+            throw new CustomException(ErrorCode.SYSTEM_ERROR,"用户注册失败");
         }
         return user.getId();
     }
@@ -83,21 +85,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public User userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         // 1.校验
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-            return null;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         if (userAccount.length() < 2) {
-            return null;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"用户账号过短");
         }
         if (userPassword.length() < 6) {
-            return null;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"密码长度过短");
         }
 
         // 账户不能包含特殊字符
         String userAccountRegex = "^[a-zA-Z0-9_]+$";
         boolean isVaild = Pattern.compile(userAccountRegex).matcher(userAccount).matches();
         if (!isVaild) {
-            return null;
+            throw new CustomException(ErrorCode.PARAMS_ERROR,"用户账号包含特殊字符");
         }
+
         // 3.查询用户是否存在
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount", userAccount);
@@ -105,12 +108,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         // 4.判断用户是否存在
         if (user == null) {
-            return null;
+            throw new CustomException(ErrorCode.USER_NOT_EXIST,"用户不存在");
         }
 
         // 5.判断密码是否正确
         if (!BCrypt.checkpw(userPassword, user.getUserPassword())) {
-            return null;
+            throw new CustomException(ErrorCode.USER_PASSWORD_ERROR,"密码错误");
         }
 
         // 6.登录成功，将用户信息存入session
